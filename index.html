@@ -48,6 +48,16 @@ main{width:min(1320px,calc(100% - 40px));margin:18px auto 28px}
 .error{min-height:22px;color:#ff9b9b;font-size:13px;margin-top:8px}
 [hidden]{display:none!important}
 @media(max-width:760px){main{width:calc(100% - 18px);margin:10px auto}.calc-shell{min-height:calc(100vh - 130px)}.display{min-height:150px;padding:15px 18px}.keypad{grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:minmax(57px,1fr);min-height:340px;flex-basis:48vh}.addressbar{flex-wrap:wrap}.addressbar input{flex-basis:100%;height:44px}.action{height:40px;flex:1}.webframe{height:60vh;min-height:350px}}
+
+.search-results{padding:16px 20px;max-height:55vh;overflow:auto;background:#fff;color:#202124}
+.search-results[hidden]{display:none!important}
+.search-heading{font-size:18px;font-weight:700;margin:0 0 14px;color:#202124}
+.search-result{padding:12px 0;border-bottom:1px solid #e5e7eb}
+.search-result a{color:#1a0dab;font-size:17px;text-decoration:none;overflow-wrap:anywhere}
+.search-result a:hover{text-decoration:underline}
+.search-url{font-size:12px;color:#188038;margin:4px 0;overflow-wrap:anywhere}
+.search-snippet{font-size:13px;color:#4b5563;line-height:1.6}
+.search-note{font-size:13px;color:#5f6368;padding:12px 0}
 </style>
 </head>
 <body>
@@ -71,10 +81,11 @@ main{width:min(1320px,calc(100% - 40px));margin:18px auto 28px}
 </section>
 <section class="view" id="browserView">
   <div class="browser-shell">
-    <form class="addressbar" id="urlForm"><input id="urlInput" type="text" placeholder="URLを入力（例：https://example.com）" autocomplete="url" aria-label="URL"><button class="action primary" type="submit">開く</button><button class="action" type="button" id="reload">↻ 再読み込み</button><button class="action" type="button" id="external">別タブ ↗</button></form>
-    <div class="browser-info" id="browserStatus">ブラウザ — URLを入力してください</div>
+    <form class="addressbar" id="urlForm"><input id="urlInput" type="text" placeholder="検索キーワード / URLを入力（例：猫、youtube.com）" autocomplete="url" aria-label="URL"><button class="action primary" type="submit">開く</button><button class="action" type="button" id="reload">↻ 再読み込み</button><button class="action" type="button" id="external">別タブ ↗</button></form>
+    <div class="browser-info" id="browserStatus">ブラウザ — URLまたは検索キーワードを入力してください</div>
+    <div id="searchResults" class="search-results" hidden></div>
     <div class="browser-empty" id="browserEmpty"><div><strong>ブラウザが解放されました</strong><p>利用が許可されているWebサイトを開けます。</p></div></div>
-    <iframe class="webframe" id="webframe" title="Webサイト" hidden sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe>
+    <iframe class="webframe" id="webframe" title="Webサイト" hidden sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
   </div>
   <p class="help">サイト側が埋め込み表示を禁止している場合、この画面では開けません。学校・家庭・ネットワーク管理者によるアクセス制限を解除する機能ではありません。</p>
 </section>
@@ -134,8 +145,32 @@ $("passwordInput").addEventListener("keydown",e=>{if(e.key==="Enter")checkPasswo
 drawTabs();
 
 let currentURL="";
-$("urlForm").addEventListener("submit",e=>{e.preventDefault();try{let raw=$("urlInput").value.trim();if(!/^[a-z][a-z0-9+.-]*:/i.test(raw))raw="https://"+raw;let u=new URL(raw);if(!["http:","https:"].includes(u.protocol))throw Error();currentURL=u.href;$("urlInput").value=currentURL;$("webframe").src=currentURL;$("webframe").hidden=false;$("browserEmpty").hidden=true;$("browserStatus").textContent="表示をリクエストしました（サイトによっては埋め込み不可）";let t=tabs.find(x=>x.id===activeId);if(t){t.url=currentURL;t.title=u.hostname.slice(0,18);drawTabs()}}catch{$("browserStatus").textContent="正しい http / https のURLを入力してください"}});
-$("reload").addEventListener("click",()=>{if(currentURL)$("webframe").src=currentURL});
+const searchResults=$("searchResults");
+function isLikelyURL(value){return /^(https?:\/\/)/i.test(value)||/^[\w-]+(\.[\w-]+)+(\/|$)/.test(value)||/^localhost(:\d+)?(\/|$)/.test(value)}
+function showPage(raw){
+ try{
+  let value=raw.trim();if(!/^[a-z][a-z0-9+.-]*:/i.test(value))value="https://"+value;
+  const u=new URL(value);if(!["http:","https:"].includes(u.protocol))throw Error();
+  currentURL=u.href;$("urlInput").value=currentURL;searchResults.hidden=true;$("webframe").hidden=false;$("browserEmpty").hidden=true;
+  const host=u.hostname.toLowerCase().replace(/^www\./,"");const id=u.searchParams.get("v")||(host==="youtu.be"?u.pathname.slice(1):"");
+  if((host==="youtube.com"||host==="m.youtube.com"||host==="youtu.be")&&id){$("webframe").src="https://www.youtube-nocookie.com/embed/"+encodeURIComponent(id);$("browserStatus").textContent="YouTube公式埋め込みプレイヤー"}
+  else{$("webframe").src=currentURL;$("browserStatus").textContent="ページ表示をリクエストしました（サイト側の設定により表示できない場合があります）"}
+  const t=tabs.find(x=>x.id===activeId);if(t){t.url=currentURL;t.title=u.hostname.slice(0,18);drawTabs()}
+ }catch{$("browserStatus").textContent="正しいURLまたは検索キーワードを入力してください"}
+}
+function renderResults(items,query){
+ searchResults.replaceChildren();const heading=document.createElement("h2");heading.className="search-heading";heading.textContent="「"+query+"」の検索結果";searchResults.append(heading);
+ if(!items.length){const note=document.createElement("p");note.className="search-note";note.textContent="検索結果が見つかりませんでした。別のキーワードで試してください。";searchResults.append(note)}
+ items.forEach(item=>{const article=document.createElement("article");article.className="search-result";const link=document.createElement("a");link.href=item.url;link.textContent=item.title||item.url;link.addEventListener("click",e=>{e.preventDefault();showPage(item.url)});const url=document.createElement("div");url.className="search-url";url.textContent=item.displayUrl||item.url;const snippet=document.createElement("div");snippet.className="search-snippet";snippet.textContent=item.snippet||"";article.append(link,url,snippet);searchResults.append(article)});
+ searchResults.hidden=false;$("webframe").hidden=true;$("browserEmpty").hidden=true;
+}
+$("urlForm").addEventListener("submit",async e=>{
+ e.preventDefault();const raw=$("urlInput").value.trim();if(!raw)return;if(isLikelyURL(raw)){showPage(raw);return}
+ searchResults.hidden=false;searchResults.replaceChildren();const loading=document.createElement("p");loading.className="search-note";loading.textContent="検索しています…";searchResults.append(loading);$("webframe").hidden=true;$("browserEmpty").hidden=true;$("browserStatus").textContent="検索中";
+ try{const response=await fetch("/api/search?q="+encodeURIComponent(raw),{headers:{"Accept":"application/json"}});if(!response.ok)throw Error("search failed");const data=await response.json();renderResults(Array.isArray(data.results)?data.results:[],raw);$("browserStatus").textContent="検索結果："+(data.results?.length||0)+"件"}
+ catch{searchResults.replaceChildren();const note=document.createElement("p");note.className="search-note";note.textContent="検索サービスに接続できませんでした。少し待ってから再試行してください。";searchResults.append(note);$("browserStatus").textContent="検索エラー"}
+});
+$("reload").addEventListener("click",()=>{if(currentURL)$("webframe").src=currentURL;else $("urlForm").requestSubmit()});
 $("external").addEventListener("click",()=>{if(currentURL)window.open(currentURL,"_blank","noopener,noreferrer")});
 </script>
 </body>
