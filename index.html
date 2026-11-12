@@ -1099,8 +1099,7 @@ $("evolveBreadBtn").addEventListener("click", ()=>{
 // Prestige
 $("prestigeBtn").addEventListener("click", ()=>{
   if(!gameState || gameState.totalSpores < 50000) return;
-  if(!confirm("新しいパンに買い替えますか？
-所持胞子・設備・パンのランクはリセットされますが、キャラクターは残り、永続ボーナスが +25% 増えます！")) return;
+  if(!confirm("新しいパンに買い替えますか？\n所持胞子・設備・パンのランクはリセットされますが、キャラクターは残り、永続ボーナスが +25% 増えます！")) return;
   gameState.prestige = (gameState.prestige || 0) + 1;
   gameState.spores = 0;
   gameState.breadIndex = 0;
