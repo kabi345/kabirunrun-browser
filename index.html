@@ -80,7 +80,14 @@ main{width:min(1320px,calc(100% - 40px));margin:18px auto 28px}
 .msg{max-width:74%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5;word-break:break-word}
 .msg.mine{align-self:flex-end;background:#2563eb;color:#fff;border-bottom-right-radius:4px}
 .msg.theirs{align-self:flex-start;background:#2b313c;color:#f3f4f6;border-bottom-left-radius:4px}
+.msg.system{align-self:center;background:#232832;color:#94a3b8;font-size:12px;padding:6px 14px;border-radius:999px;max-width:90%;text-align:center}
+.msg-sender{font-size:11px;font-weight:700;color:#6ee7b7;margin-bottom:3px}
 .msg-meta{font-size:10px;opacity:.75;margin-top:4px;text-align:right}
+.group-create-btn{width:100%;background:#059669;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;color:#fff;text-align:center}
+.group-create-btn:hover{filter:brightness(1.1)}
+.member-check-list{max-height:180px;overflow-y:auto;background:#151a21;border:1px solid #4a5665;border-radius:9px;padding:8px;display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.member-check-item{display:flex;align-items:center;gap:8px;font-size:13px;color:#e2e8f0;padding:4px 6px;border-radius:6px;cursor:pointer}
+.member-check-item:hover{background:#222832}
 .chat-form{display:flex;gap:8px;padding:12px 16px;border-top:1px solid #353a42;background:#20242b}
 .chat-form input{flex:1;background:#14171c;border:1px solid #414a57;border-radius:9px;color:#fff;padding:11px 14px;font-size:14px;outline:none}
 .chat-form button{background:#0d9488;border-radius:9px;padding:0 18px;font-weight:700}
@@ -375,7 +382,11 @@ main{width:min(1320px,calc(100% - 40px));margin:18px auto 28px}
 <section class="view" id="chatView">
   <div class="chat-shell">
     <aside class="chat-sidebar">
-      <h3>💬 トーク相手</h3>
+      <h3>👥 グループチャット</h3>
+      <button type="button" class="group-create-btn" id="openCreateGroupBtn">＋ グループを作成</button>
+      <div class="peer-list" id="groupList"></div>
+
+      <h3 style="margin-top:6px">💬 個人トーク（DM）</h3>
       <div class="chat-peer-input">
         <input id="customPeerInput" type="text" placeholder="相手のIDを入力...">
         <button type="button" id="addPeerBtn">開く</button>
@@ -384,12 +395,19 @@ main{width:min(1320px,calc(100% - 40px));margin:18px auto 28px}
       <div class="peer-list" id="peerList"></div>
     </aside>
     <div class="chat-main">
-      <div class="chat-header">
-        <strong id="chatTargetTitle">左から相手を選ぶかIDを入力してください</strong>
-        <button class="head-btn" type="button" id="refreshChatBtn">↻ 更新</button>
+      <div class="chat-header" style="gap:8px;flex-wrap:wrap">
+        <div>
+          <strong id="chatTargetTitle">左からグループまたは相手を選んでください</strong>
+          <div id="chatSubTitle" style="font-size:11px;color:#94a3b8;margin-top:2px" hidden></div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <button class="head-btn" type="button" id="addGroupMemberBtn" hidden>＋ メンバー追加</button>
+          <button class="head-btn logout-btn" type="button" id="leaveGroupBtn" hidden>退出</button>
+          <button class="head-btn" type="button" id="refreshChatBtn">↻ 更新</button>
+        </div>
       </div>
       <div class="chat-messages" id="chatMessages">
-        <div style="color:#94a3b8;text-align:center;margin-top:40px;font-size:13px">相手を選ぶとメッセージ履歴が表示されます</div>
+        <div style="color:#94a3b8;text-align:center;margin-top:40px;font-size:13px">グループまたは相手を選ぶとメッセージ履歴が表示されます</div>
       </div>
       <form class="chat-form" id="chatForm">
         <input id="chatTextInput" type="text" placeholder="メッセージを入力..." autocomplete="off">
@@ -446,6 +464,24 @@ main{width:min(1320px,calc(100% - 40px));margin:18px auto 28px}
     <div class="modal-actions">
       <button type="button" id="cancelAuth">閉じる</button>
       <button type="button" id="submitAuth" class="unlock">申請を送る</button>
+    </div>
+  </section>
+</div>
+
+<!-- グループチャット作成モーダル -->
+<div class="modal-backdrop" id="groupModal" hidden>
+  <section class="modal" role="dialog" aria-modal="true">
+    <div class="modal-kicker">GROUP CHAT</div>
+    <h2>新しいグループチャットを作成</h2>
+    <p>グループ名を決めて、招待するメンバーにチェックを入れてください。</p>
+    <label class="field-label" for="groupNameInput">グループ名</label>
+    <input class="answer" id="groupNameInput" type="text" maxlength="30" autocomplete="off" placeholder="例: カビパン同盟">
+    <label class="field-label">招待するメンバー（複数選択可）</label>
+    <div class="member-check-list" id="groupMemberCheckList"></div>
+    <div class="error" id="groupModalError"></div>
+    <div class="modal-actions">
+      <button type="button" id="cancelGroupModal">キャンセル</button>
+      <button type="button" id="submitCreateGroup" class="unlock">作成する</button>
     </div>
   </section>
 </div>
@@ -527,7 +563,7 @@ function equals(){
 }
 
 $("keypad").addEventListener("click",e=>{let b=e.target.closest("button");if(!b)return;let a=b.dataset.action,v=b.dataset.v;if(a==="clear"){expr="";justEvaluated=false;render()}else if(a==="back"){expr=expr.slice(0,-1);justEvaluated=false;render()}else if(a==="equals")equals();else if(v==="rand")add(String(Math.floor(Math.random()*1000)));else add(v)});
-document.addEventListener("keydown",e=>{if($("calculatorView").classList.contains("active") && $("passwordModal").hidden && $("authModal").hidden){if(/^[0-9.+\-*/()%]$/.test(e.key))add(e.key);else if(e.key==="Enter")equals();else if(e.key==="Backspace"){expr=expr.slice(0,-1);render()}else if(e.key==="Escape"){expr="";render()}}});
+document.addEventListener("keydown",e=>{if($("calculatorView").classList.contains("active") && $("passwordModal").hidden && $("authModal").hidden && $("groupModal").hidden){if(/^[0-9.+\-*/()%]$/.test(e.key))add(e.key);else if(e.key==="Enter")equals();else if(e.key==="Backspace"){expr=expr.slice(0,-1);render()}else if(e.key==="Escape"){expr="";render()}}});
 
 /* Tabs Management */
 let tabs=[{id:1,title:"電卓",type:"calc",url:"",history:[],histIndex:-1,lastQuery:"",lastResults:null,anon:true}],activeId=1,nextId=2;
@@ -1448,38 +1484,99 @@ setInterval(()=>{
   }
 }, 1000);
 
-/* Direct Messaging Logic (4*4+4) */
+/* Direct Messaging & Group Chat Logic (4*4+4) */
 let activePeer = "";
+let activeGroupId = "";
+let cachedPartners = [];
+let cachedGroups = [];
 
 async function loadChatPartners(){
   if(!currentUser) return;
   try{
-    const res = await fetch("/api/chat?me=" + encodeURIComponent(currentUser.id) + "&password=" + encodeURIComponent(currentUser.password) + (activePeer ? "&peer=" + encodeURIComponent(activePeer) : ""));
+    let q = "/api/chat?me=" + encodeURIComponent(currentUser.id) + "&password=" + encodeURIComponent(currentUser.password);
+    if(activeGroupId) q += "&groupId=" + encodeURIComponent(activeGroupId);
+    else if(activePeer) q += "&peer=" + encodeURIComponent(activePeer);
+
+    const res = await fetch(q);
     const data = await res.json();
     if(!res.ok) return;
+
+    cachedPartners = data.partners || [];
+    cachedGroups = data.groups || [];
+
+    const groupList = $("groupList");
+    groupList.replaceChildren();
+    if(!cachedGroups.length){
+      const emptyG = document.createElement("div");
+      emptyG.style.cssText = "font-size:11px;color:#64748b;padding:2px 4px";
+      emptyG.textContent = "参加中のグループはありません";
+      groupList.append(emptyG);
+    }else{
+      cachedGroups.forEach(g=>{
+        const btn = document.createElement("button");
+        btn.className = "peer-item" + (g.id === activeGroupId ? " active" : "");
+        btn.innerHTML = `<span>👥 ${g.name}</span><span style="font-size:11px;opacity:.8">${g.members.length}人</span>`;
+        btn.addEventListener("click", ()=>selectGroup(g.id));
+        groupList.append(btn);
+      });
+    }
+
     const peerList = $("peerList");
     peerList.replaceChildren();
-    (data.partners || []).forEach(p=>{
+    cachedPartners.forEach(p=>{
       const btn = document.createElement("button");
-      btn.className = "peer-item" + (p === activePeer ? " active" : "");
+      btn.className = "peer-item" + (!activeGroupId && p === activePeer ? " active" : "");
       btn.textContent = p === "admin" ? "👑 admin (管理者)" : "👤 " + p;
       btn.addEventListener("click", ()=>selectPeer(p));
       peerList.append(btn);
     });
-    if(activePeer && Array.isArray(data.messages)){
-      renderChatMessages(data.messages);
+
+    if(activeGroupId && data.group){
+      $("chatTargetTitle").textContent = "👥 " + data.group.name;
+      $("chatSubTitle").hidden = false;
+      $("chatSubTitle").textContent = "メンバー (" + data.group.members.length + "人): " + data.group.members.join(", ");
+      $("addGroupMemberBtn").hidden = false;
+      $("leaveGroupBtn").hidden = false;
+    }else if(activePeer){
+      $("chatTargetTitle").textContent = "💬 " + activePeer + " とのトーク";
+      $("chatSubTitle").hidden = true;
+      $("addGroupMemberBtn").hidden = true;
+      $("leaveGroupBtn").hidden = true;
+    }
+
+    if((activeGroupId || activePeer) && Array.isArray(data.messages)){
+      renderChatMessages(data.messages, Boolean(activeGroupId));
     }
   }catch{}
 }
 
 function selectPeer(peerId){
   activePeer = peerId.trim();
+  activeGroupId = "";
   if(!activePeer) return;
   $("chatTargetTitle").textContent = "💬 " + activePeer + " とのトーク";
+  $("chatSubTitle").hidden = true;
+  $("addGroupMemberBtn").hidden = true;
+  $("leaveGroupBtn").hidden = true;
   loadChatPartners();
 }
 
-function renderChatMessages(msgs){
+function selectGroup(groupId){
+  activeGroupId = groupId.trim();
+  activePeer = "";
+  if(!activeGroupId) return;
+  const found = cachedGroups.find(g=>g.id === activeGroupId);
+  if(found){
+    $("chatTargetTitle").textContent = "👥 " + found.name;
+    $("chatSubTitle").hidden = false;
+    $("chatSubTitle").textContent = "メンバー (" + found.members.length + "人): " + found.members.join(", ");
+  }
+  $("addGroupMemberBtn").hidden = false;
+  $("leaveGroupBtn").hidden = false;
+  loadChatPartners();
+}
+
+function renderChatMessages(msgs, isGroup=false){
   const box = $("chatMessages");
   box.replaceChildren();
   if(!msgs.length){
@@ -1488,9 +1585,24 @@ function renderChatMessages(msgs){
   }
   msgs.forEach(m=>{
     const div = document.createElement("div");
+    if(m.from === "SYSTEM"){
+      div.className = "msg system";
+      div.textContent = m.text;
+      box.append(div);
+      return;
+    }
     const isMine = m.from === currentUser.id;
     div.className = "msg " + (isMine ? "mine" : "theirs");
-    div.textContent = m.text;
+    if(isGroup && !isMine){
+      const sender = document.createElement("div");
+      sender.className = "msg-sender";
+      sender.textContent = m.from === "admin" ? "👑 admin" : m.from;
+      div.append(sender);
+    }
+    const bodySpan = document.createElement("span");
+    bodySpan.textContent = m.text;
+    div.append(bodySpan);
+
     const meta = document.createElement("div");
     meta.className = "msg-meta";
     const d = new Date(m.at || Date.now());
@@ -1500,6 +1612,115 @@ function renderChatMessages(msgs){
   });
   box.scrollTop = box.scrollHeight;
 }
+
+$("openCreateGroupBtn").addEventListener("click", async ()=>{
+  if(!currentUser) return;
+  if(!cachedPartners.length) await loadChatPartners();
+  $("groupNameInput").value = "";
+  $("groupModalError").textContent = "";
+  const list = $("groupMemberCheckList");
+  list.replaceChildren();
+  if(!cachedPartners.length){
+    list.innerHTML = '<div style="font-size:12px;color:#94a3b8">招待できる承認済みユーザーがまだいません</div>';
+  }else{
+    cachedPartners.forEach(p=>{
+      const label = document.createElement("label");
+      label.className = "member-check-item";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.value = p;
+      const span = document.createElement("span");
+      span.textContent = p === "admin" ? "👑 admin (管理者)" : "👤 " + p;
+      label.append(cb, span);
+      list.append(label);
+    });
+  }
+  $("groupModal").hidden = false;
+  $("groupNameInput").focus();
+});
+
+$("cancelGroupModal").addEventListener("click", ()=>$("groupModal").hidden = true);
+
+$("submitCreateGroup").addEventListener("click", async ()=>{
+  if(!currentUser) return;
+  const name = $("groupNameInput").value.trim();
+  if(!name){
+    $("groupModalError").textContent = "グループ名を入力してください。";
+    return;
+  }
+  const checked = Array.from($("groupMemberCheckList").querySelectorAll("input[type=checkbox]:checked")).map(cb=>cb.value);
+  $("submitCreateGroup").disabled = true;
+  try{
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create_group",
+        me: currentUser.id,
+        password: currentUser.password,
+        name,
+        members: checked
+      })
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "作成に失敗しました");
+    $("groupModal").hidden = true;
+    await loadChatPartners();
+    if(data.group && data.group.id) selectGroup(data.group.id);
+  }catch(err){
+    $("groupModalError").textContent = err.message;
+  }finally{
+    $("submitCreateGroup").disabled = false;
+  }
+});
+
+$("addGroupMemberBtn").addEventListener("click", async ()=>{
+  if(!currentUser || !activeGroupId) return;
+  const memberId = prompt("グループに追加したい友達のユーザーIDを入力してください：");
+  if(!memberId || !memberId.trim()) return;
+  try{
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "add_member",
+        me: currentUser.id,
+        password: currentUser.password,
+        groupId: activeGroupId,
+        memberId: memberId.trim()
+      })
+    });
+    const data = await res.json();
+    if(!res.ok) alert(data.error || "追加に失敗しました");
+    else loadChatPartners();
+  }catch{}
+});
+
+$("leaveGroupBtn").addEventListener("click", async ()=>{
+  if(!currentUser || !activeGroupId) return;
+  if(!confirm("このグループチャットから退出しますか？")) return;
+  try{
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "leave_group",
+        me: currentUser.id,
+        password: currentUser.password,
+        groupId: activeGroupId
+      })
+    });
+    if(res.ok){
+      activeGroupId = "";
+      $("chatTargetTitle").textContent = "左からグループまたは相手を選んでください";
+      $("chatSubTitle").hidden = true;
+      $("addGroupMemberBtn").hidden = true;
+      $("leaveGroupBtn").hidden = true;
+      $("chatMessages").innerHTML = '<div style="color:#94a3b8;text-align:center;margin-top:40px;font-size:13px">グループまたは相手を選ぶとメッセージ履歴が表示されます</div>';
+      loadChatPartners();
+    }
+  }catch{}
+});
 
 $("addPeerBtn").addEventListener("click", ()=>{
   const val = $("customPeerInput").value.trim();
@@ -1512,24 +1733,28 @@ $("refreshChatBtn").addEventListener("click", loadChatPartners);
 
 $("chatForm").addEventListener("submit", async e=>{
   e.preventDefault();
-  if(!currentUser || !activePeer) return;
+  if(!currentUser || (!activePeer && !activeGroupId)) return;
   const text = $("chatTextInput").value.trim();
   if(!text) return;
   $("chatTextInput").value = "";
   try{
+    const payload = {
+      action: "send",
+      me: currentUser.id,
+      password: currentUser.password,
+      text
+    };
+    if(activeGroupId) payload.groupId = activeGroupId;
+    else payload.peer = activePeer;
+
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        me: currentUser.id,
-        password: currentUser.password,
-        peer: activePeer,
-        text
-      })
+      body: JSON.stringify(payload)
     });
     const data = await res.json();
     if(res.ok && data.messages){
-      renderChatMessages(data.messages);
+      renderChatMessages(data.messages, Boolean(activeGroupId));
     }else if(data.error){
       alert(data.error);
     }
@@ -1537,7 +1762,7 @@ $("chatForm").addEventListener("submit", async e=>{
 });
 
 setInterval(()=>{
-  if($("chatView").classList.contains("active") && currentUser && activePeer){
+  if($("chatView").classList.contains("active") && currentUser && (activePeer || activeGroupId)){
     loadChatPartners();
   }
 }, 4000);
