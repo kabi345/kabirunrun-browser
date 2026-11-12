@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#17191d">
+<title>かびるんるん最高！</title>
+<style>
+:root{color-scheme:dark;--bg:#17191d;--header:#202328;--line:#353a42;--muted:#aeb4bd;--num:#303236;--op:#4a4c50;--sci:#087f73;--trig:#19cba7;--accent:#4388f5}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f5f6f7;font-family:Arial,"Noto Sans JP",sans-serif;min-height:100vh}
+header{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:var(--header);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:15px;letter-spacing:.4px}.head-actions{display:flex;gap:8px}
+button{font:inherit;color:inherit;border:0;cursor:pointer}
+.head-btn{background:#343a43;border:1px solid #454c57;padding:8px 13px;border-radius:8px;font-size:13px}
+.head-btn:disabled{opacity:.55;cursor:not-allowed}
+.tabs{display:flex;gap:5px;padding:9px 18px 0;background:var(--header);border-bottom:1px solid var(--line);min-height:49px;overflow-x:auto}
+.tab{padding:10px 17px;background:#292e35;color:#b8c0cb;border-radius:8px 8px 0 0;white-space:nowrap;font-size:13px}
+.tab.active{background:#3a424d;color:#fff}.tab .x{margin-left:12px;color:#c0c7d0}
+main{width:min(1320px,calc(100% - 40px));margin:18px auto 28px}
+.view{display:none}.view.active{display:block}
+.calc-shell{background:#ededed;color:#171717;border-radius:15px;overflow:hidden;box-shadow:0 18px 55px #0006;min-height:calc(100vh - 145px);display:flex;flex-direction:column}
+.calc-top{height:45px;flex:0 0 45px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;color:#62676e;font-size:13px}
+.calc-menu{background:transparent;color:#555;font-size:23px;padding:0 5px}
+.display{flex:1;min-height:190px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;padding:22px 30px 27px;overflow:hidden}
+.expression{font-size:clamp(18px,2vw,26px);color:#737982;min-height:38px;max-width:100%;overflow-wrap:anywhere;text-align:right}
+.result{font-size:clamp(42px,5vw,62px);font-weight:400;max-width:100%;overflow-wrap:anywhere;text-align:right;color:#171717}
+.keypad{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));grid-auto-rows:minmax(66px,1fr);min-height:330px;flex:0 0 42vh}
+.key{background:var(--num);color:#f7f7f7;font-size:clamp(15px,1.5vw,20px);border-right:1px solid #ffffff0d;border-top:1px solid #ffffff12;transition:filter .12s,background .12s}
+.key:hover{filter:brightness(1.18)}.key:active{filter:brightness(1.35)}
+.key.operator{background:var(--op);color:#fff}.key.science{background:var(--sci);color:#fff}.key.trig{background:var(--trig);color:#06443a}.key.equal{background:#078675;color:#fff}
+.browser-shell{background:#20242b;border:1px solid #39414d;border-radius:14px;overflow:hidden;min-height:70vh}
+.addressbar{display:flex;gap:9px;padding:14px;border-bottom:1px solid #39414d}
+.addressbar input{flex:1;min-width:0;background:#14171c;border:1px solid #414a57;border-radius:9px;color:#fff;padding:12px 14px;font-size:14px;outline:none}
+.addressbar input:focus{border-color:#60a5fa}.action{background:#39414d;border-radius:9px;padding:0 16px}.action.primary{background:#2563eb}
+.browser-info{padding:11px 15px;color:#b5bfcc;font-size:12px;border-bottom:1px solid #39414d}
+.webframe{width:100%;height:calc(70vh - 58px);min-height:430px;border:0;background:#fff;display:block}
+.browser-empty{height:62vh;display:grid;place-content:center;text-align:center;color:#aab4c2;padding:25px}.browser-empty strong{font-size:22px;color:#f0f3f8}
+.help{font-size:12px;color:#9da8b7;line-height:1.7;margin:12px 4px 0}
+.modal-backdrop{position:fixed;inset:0;background:#080a0dcc;display:grid;place-items:center;padding:18px;z-index:20}
+.modal{width:min(480px,100%);background:#222832;border:1px solid #46505e;border-radius:17px;box-shadow:0 24px 90px #000a;padding:24px}
+.modal-kicker{font-size:11px;letter-spacing:1.5px;color:#80aefb;font-weight:700}
+.modal h2{font-size:23px;margin:8px 0 7px}.modal p{color:#c0c8d3;font-size:14px;line-height:1.7}
+.puzzle{margin:18px 0;padding:18px;background:#151a21;border:1px solid #3a4553;border-radius:12px;text-align:center;font-size:25px;font-weight:700;letter-spacing:1px}
+.answer{width:100%;height:46px;border:1px solid #4a5665;background:#151a21;border-radius:9px;color:white;padding:0 13px;font-size:17px;outline:none}
+.answer:focus{border-color:#70a5ff}.modal-actions{display:flex;gap:9px;margin-top:13px}.modal-actions button{flex:1;padding:11px;border-radius:9px;background:#394351}.modal-actions .unlock{background:#2563eb;font-weight:700}
+.hint-area{margin-top:13px;padding:12px;background:#19212c;border-radius:9px;color:#c6d2e1;font-size:13px;line-height:1.6}
+.hint-btn{background:transparent!important;color:#9fc3ff!important;text-decoration:underline;padding:8px 0!important}
+.error{min-height:22px;color:#ff9b9b;font-size:13px;margin-top:8px}
+[hidden]{display:none!important}
+@media(max-width:760px){main{width:calc(100% - 18px);margin:10px auto}.calc-shell{min-height:calc(100vh - 130px)}.display{min-height:150px;padding:15px 18px}.keypad{grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:minmax(57px,1fr);min-height:340px;flex-basis:48vh}.addressbar{flex-wrap:wrap}.addressbar input{flex-basis:100%;height:44px}.action{height:40px;flex:1}.webframe{height:60vh;min-height:350px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">かびるんるん最高！</div>
+  <div class="head-actions"><button class="head-btn" id="newTab" hidden>＋ 新しいタブ</button></div>
+</header>
+<nav class="tabs" id="tabs" aria-label="タブ"></nav>
+<main>
+<section class="view active" id="calculatorView">
+  <div class="calc-shell">
+    <div class="calc-top"><span>電卓</span><button class="calc-menu" aria-label="電卓メニュー">⋮</button></div>
+    <div class="display"><div class="expression" id="expression"></div><div class="result" id="result">0</div></div>
+    <div class="keypad" id="keypad">
+      <button class="key" data-v="7">7</button><button class="key" data-v="8">8</button><button class="key" data-v="9">9</button><button class="key operator" data-action="clear">AC</button><button class="key operator" data-action="back">⌫</button><button class="key" data-v="4">4</button><button class="key" data-v="5">5</button><button class="key" data-v="6">6</button><button class="key operator" data-v="/">÷</button><button class="key science" data-v="rand">rnd</button>
+      <button class="key" data-v="1">1</button><button class="key" data-v="2">2</button><button class="key" data-v="3">3</button><button class="key operator" data-v="*">×</button><button class="key science" data-v="(">(</button><button class="key" data-v=".">.</button><button class="key" data-v="0">0</button><button class="key equal" data-action="equals">=</button><button class="key operator" data-v="-">−</button><button class="key science" data-v=")">)</button>
+      <button class="key science" data-v="sqrt(">√</button><button class="key science" data-v="^">xʸ</button><button class="key science" data-v="%">%</button><button class="key operator" data-v="+">+</button><button class="key science" data-v="pi">π</button><button class="key trig" data-v="sin(">sin</button><button class="key trig" data-v="cos(">cos</button><button class="key trig" data-v="tan(">tan</button><button class="key trig" data-v="log(">log</button><button class="key trig" data-v="ln(">ln</button>
+    </div>
+  </div>
+  <p class="help">電卓で指定の計算をして「＝」を押すと、「新しいタブ」ボタンが現れます。</p>
+</section>
+<section class="view" id="browserView">
+  <div class="browser-shell">
+    <form class="addressbar" id="urlForm"><input id="urlInput" type="text" placeholder="URLを入力（例：https://example.com）" autocomplete="url" aria-label="URL"><button class="action primary" type="submit">開く</button><button class="action" type="button" id="reload">↻ 再読み込み</button><button class="action" type="button" id="external">別タブ ↗</button></form>
+    <div class="browser-info" id="browserStatus">ブラウザ — URLを入力してください</div>
+    <div class="browser-empty" id="browserEmpty"><div><strong>ブラウザが解放されました</strong><p>利用が許可されているWebサイトを開けます。</p></div></div>
+    <iframe class="webframe" id="webframe" title="Webサイト" hidden sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe>
+  </div>
+  <p class="help">サイト側が埋め込み表示を禁止している場合、この画面では開けません。学校・家庭・ネットワーク管理者によるアクセス制限を解除する機能ではありません。</p>
+</section>
+</main>
+
+<div class="modal-backdrop" id="passwordModal" hidden>
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="passwordTitle">
+    <div class="modal-kicker">NEXUS ACCESS</div>
+    <h2 id="passwordTitle">パスワードは？</h2>
+    <p>ブラウザを開くにはパスワードを入力してください。</p>
+    <input class="answer" id="passwordInput" type="password" inputmode="numeric" autocomplete="off" placeholder="パスワード">
+    <div class="error" id="passwordError" aria-live="polite"></div>
+    <div class="modal-actions">
+      <button type="button" id="cancelPassword">キャンセル</button>
+      <button type="button" id="submitPassword" class="unlock">開く</button>
+    </div>
+  </section>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let expr="",justEvaluated=false;
+function render(){$("expression").textContent=expr.replaceAll("*","×").replaceAll("/","÷");$("result").textContent=expr||"0"}
+function add(v){if(justEvaluated&&/[0-9.(]/.test(v))expr="";justEvaluated=false;expr+=v;render()}
+function safeEval(s){
+ const tokens=s.match(/(?:\d+\.?\d*|\.\d+)|pi|sqrt|sin|cos|tan|log|ln|[()+\-*/%^]/g);
+ if(!tokens||tokens.join("")!==s.replace(/\s/g,""))throw Error();
+ let i=0;
+ function primary(){let t=tokens[i++];if(t==="+")return primary();if(t==="-")return-primary();if(t==="("){let v=sum();if(tokens[i++]!==")")throw Error();return v}
+  if(["sqrt","sin","cos","tan","log","ln"].includes(t)){if(tokens[i++]!=="(")throw Error();let x=sum();if(tokens[i++]!==")")throw Error();if(t==="sqrt")return Math.sqrt(x);if(t==="sin")return Math.sin(x*Math.PI/180);if(t==="cos")return Math.cos(x*Math.PI/180);if(t==="tan")return Math.tan(x*Math.PI/180);if(t==="log")return Math.log10(x);return Math.log(x)}
+  if(t==="pi")return Math.PI;let n=Number(t);if(!Number.isFinite(n))throw Error();return n}
+ function power(){let v=primary();if(tokens[i]==="^"){i++;v=Math.pow(v,power())}return v}
+ function term(){let v=power();while(["*","/","%"].includes(tokens[i])){let op=tokens[i++],b=power();v=op==="*"?v*b:op==="/"?v/b:v%b}return v}
+ function sum(){let v=term();while(tokens[i]==="+"||tokens[i]==="-"){let op=tokens[i++],b=term();v=op==="+"?v+b:v-b}return v}
+ let v=sum();if(i!==tokens.length||!Number.isFinite(v))throw Error();return v
+}
+function equals(){if(!expr)return;try{let original=expr.replace(/\s/g,"");let v=safeEval(expr);$("expression").textContent=expr.replaceAll("*","×").replaceAll("/","÷")+" =";expr=String(Number(v.toPrecision(12)));$("result").textContent=expr;justEvaluated=true;if(original==="114514+810+314"&&v===115638){$("newTab").hidden=false;$("newTab").textContent="＋ 新しいタブ";$("browserStatus").textContent="新しいタブが表示されました。"} }catch{$("result").textContent="エラー"}}
+$("keypad").addEventListener("click",e=>{let b=e.target.closest("button");if(!b)return;let a=b.dataset.action,v=b.dataset.v;if(a==="clear"){expr="";justEvaluated=false;render()}else if(a==="back"){expr=expr.slice(0,-1);justEvaluated=false;render()}else if(a==="equals")equals();else if(v==="rand")add(String(Math.floor(Math.random()*1000)));else add(v)});
+document.addEventListener("keydown",e=>{if($("calculatorView").classList.contains("active")){if(/^[0-9.+\-*/()%]$/.test(e.key))add(e.key);else if(e.key==="Enter")equals();else if(e.key==="Backspace"){expr=expr.slice(0,-1);render()}else if(e.key==="Escape"){expr="";render()}}});
+
+let tabs=[{id:1,title:"電卓",type:"calc",url:""}],activeId=1,nextId=2;
+function drawTabs(){$("tabs").replaceChildren();tabs.forEach(t=>{let b=document.createElement("button");b.className="tab"+(t.id===activeId?" active":"");b.textContent=t.title;if(t.type==="web"){let x=document.createElement("span");x.className="x";x.textContent="×";x.title="タブを閉じる";x.addEventListener("click",e=>{e.stopPropagation();closeTab(t.id)});b.append(x)}b.addEventListener("click",()=>switchTab(t.id));$("tabs").append(b)})}
+function switchTab(id){let t=tabs.find(x=>x.id===id);if(!t)return;activeId=id;$("calculatorView").classList.toggle("active",t.type==="calc");$("browserView").classList.toggle("active",t.type==="web");drawTabs();if(t.type==="web")$("urlInput").value=t.url||""}
+function openBrowserTab(){let t={id:nextId++,title:"新しいタブ",type:"web",url:""};tabs.push(t);switchTab(t.id)}
+function closeTab(id){tabs=tabs.filter(t=>t.id!==id);if(!tabs.length)tabs=[{id:nextId++,title:"電卓",type:"calc",url:""}];if(activeId===id)activeId=tabs[tabs.length-1].id;switchTab(activeId)}
+function showPasswordPrompt(){$("passwordModal").hidden=false;$("passwordInput").value="";$("passwordError").textContent="";$("passwordInput").focus()}
+$("newTab").addEventListener("click",showPasswordPrompt);
+$("cancelPassword").addEventListener("click",()=>$("passwordModal").hidden=true);
+function checkPassword(){
+  const value=$("passwordInput").value.trim();
+  // Accept either the result or the written expression as the password.
+  if(value==="115638"||value.replace(/[×x]/g,"*").replace(/\s/g,"")==="114514+810+314"){
+    $("passwordModal").hidden=true;openBrowserTab();
+  }else $("passwordError").textContent="パスワードが違います。";
+}
+$("submitPassword").addEventListener("click",checkPassword);
+$("passwordInput").addEventListener("keydown",e=>{if(e.key==="Enter")checkPassword()});
+drawTabs();
+
+let currentURL="";
+$("urlForm").addEventListener("submit",e=>{e.preventDefault();try{let raw=$("urlInput").value.trim();if(!/^[a-z][a-z0-9+.-]*:/i.test(raw))raw="https://"+raw;let u=new URL(raw);if(!["http:","https:"].includes(u.protocol))throw Error();currentURL=u.href;$("urlInput").value=currentURL;$("webframe").src=currentURL;$("webframe").hidden=false;$("browserEmpty").hidden=true;$("browserStatus").textContent="表示をリクエストしました（サイトによっては埋め込み不可）";let t=tabs.find(x=>x.id===activeId);if(t){t.url=currentURL;t.title=u.hostname.slice(0,18);drawTabs()}}catch{$("browserStatus").textContent="正しい http / https のURLを入力してください"}});
+$("reload").addEventListener("click",()=>{if(currentURL)$("webframe").src=currentURL});
+$("external").addEventListener("click",()=>{if(currentURL)window.open(currentURL,"_blank","noopener,noreferrer")});
+</script>
+</body>
+</html>
