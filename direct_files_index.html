@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#17191d">
+<title>かびるんるん最高！</title>
+<style>
+:root{color-scheme:dark;--bg:#17191d;--header:#202328;--line:#353a42;--muted:#aeb4bd;--num:#303236;--op:#4a4c50;--sci:#087f73;--trig:#19cba7;--accent:#4388f5}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f5f6f7;font-family:Arial,"Noto Sans JP",sans-serif;min-height:100vh}
+header{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:var(--header);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:15px;letter-spacing:.4px}.head-actions{display:flex;gap:8px}
+button{font:inherit;color:inherit;border:0;cursor:pointer}
+.head-btn{background:#343a43;border:1px solid #454c57;padding:8px 13px;border-radius:8px;font-size:13px}
+.head-btn:disabled{opacity:.55;cursor:not-allowed}
+.tabs{display:flex;gap:5px;padding:9px 18px 0;background:var(--header);border-bottom:1px solid var(--line);min-height:49px;overflow-x:auto}
+.tab{padding:10px 17px;background:#292e35;color:#b8c0cb;border-radius:8px 8px 0 0;white-space:nowrap;font-size:13px}
+.tab.active{background:#3a424d;color:#fff}.tab .x{margin-left:12px;color:#c0c7d0}
+main{width:min(1320px,calc(100% - 40px));margin:18px auto 28px}
+.view{display:none}.view.active{display:block}
+.calc-shell{background:#ededed;color:#171717;border-radius:15px;overflow:hidden;box-shadow:0 18px 55px #0006;min-height:calc(100vh - 145px);display:flex;flex-direction:column}
+.calc-top{height:45px;flex:0 0 45px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;color:#62676e;font-size:13px}
+.calc-menu{background:transparent;color:#555;font-size:23px;padding:0 5px}
+.display{flex:1;min-height:190px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;padding:22px 30px 27px;overflow:hidden}
+.expression{font-size:clamp(18px,2vw,26px);color:#737982;min-height:38px;max-width:100%;overflow-wrap:anywhere;text-align:right}
+.result{font-size:clamp(42px,5vw,62px);font-weight:400;max-width:100%;overflow-wrap:anywhere;text-align:right;color:#171717}
+.keypad{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));grid-auto-rows:minmax(66px,1fr);min-height:330px;flex:0 0 42vh}
+.key{background:var(--num);color:#f7f7f7;font-size:clamp(15px,1.5vw,20px);border-right:1px solid #ffffff0d;border-top:1px solid #ffffff12;transition:filter .12s,background .12s}
+.key:hover{filter:brightness(1.18)}.key:active{filter:brightness(1.35)}
+.key.operator{background:var(--op);color:#fff}.key.science{background:var(--sci);color:#fff}.key.trig{background:var(--trig);color:#06443a}.key.equal{background:#078675;color:#fff}
+.browser-shell{background:#20242b;border:1px solid #39414d;border-radius:14px;overflow:hidden;min-height:74vh;display:flex;flex-direction:column}
+.addressbar{display:flex;gap:7px;padding:12px 14px;border-bottom:1px solid #39414d;align-items:center;flex-wrap:wrap}
+.nav-btn{background:#2e3540;border:1px solid #414a57;border-radius:8px;padding:9px 12px;font-size:13px;color:#e2e8f0}
+.nav-btn:disabled{opacity:.4;cursor:not-allowed}
+.addressbar input{flex:1;min-width:200px;background:#14171c;border:1px solid #414a57;border-radius:9px;color:#fff;padding:10px 14px;font-size:14px;outline:none}
+.addressbar input:focus{border-color:#60a5fa}
+.action{background:#39414d;border-radius:9px;padding:10px 14px;font-size:13px;white-space:nowrap}
+.action.primary{background:#2563eb;font-weight:700}
+.action.anon-on{background:#0d9488;color:#fff;font-weight:700}
+.browser-info{padding:9px 15px;color:#b5bfcc;font-size:12px;border-bottom:1px solid #39414d;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.webframe{width:100%;flex:1;height:66vh;min-height:460px;border:0;background:#fff;display:block}
+.browser-empty{height:62vh;display:grid;place-content:center;text-align:center;color:#aab4c2;padding:25px}.browser-empty strong{font-size:22px;color:#f0f3f8}
+.help{font-size:12px;color:#9da8b7;line-height:1.7;margin:12px 4px 0}
+.modal-backdrop{position:fixed;inset:0;background:#080a0dcc;display:grid;place-items:center;padding:18px;z-index:20}
+.modal{width:min(480px,100%);background:#222832;border:1px solid #46505e;border-radius:17px;box-shadow:0 24px 90px #000a;padding:24px}
+.modal-kicker{font-size:11px;letter-spacing:1.5px;color:#80aefb;font-weight:700}
+.modal h2{font-size:23px;margin:8px 0 7px}.modal p{color:#c0c8d3;font-size:14px;line-height:1.7}
+.answer{width:100%;height:46px;border:1px solid #4a5665;background:#151a21;border-radius:9px;color:white;padding:0 13px;font-size:17px;outline:none}
+.answer:focus{border-color:#70a5ff}.modal-actions{display:flex;gap:9px;margin-top:13px}.modal-actions button{flex:1;padding:11px;border-radius:9px;background:#394351}.modal-actions .unlock{background:#2563eb;font-weight:700}
+.error{min-height:22px;color:#ff9b9b;font-size:13px;margin-top:8px}
+[hidden]{display:none!important}
+@media(max-width:760px){main{width:calc(100% - 18px);margin:10px auto}.calc-shell{min-height:calc(100vh - 130px)}.display{min-height:150px;padding:15px 18px}.keypad{grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:minmax(57px,1fr);min-height:340px;flex-basis:48vh}.addressbar input{flex-basis:100%}.webframe{height:60vh;min-height:360px}}
+
+.search-results{padding:18px 24px;min-height:62vh;max-height:72vh;overflow:auto;background:#fff;color:#202124}
+.search-results[hidden]{display:none!important}
+.search-heading{font-size:17px;font-weight:700;margin:0 0 14px;color:#202124;border-bottom:1px solid #e5e7eb;padding-bottom:10px}
+.search-result{padding:13px 0;border-bottom:1px solid #f1f3f4}
+.search-result-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.search-result a.result-link{color:#1a0dab;font-size:17px;font-weight:600;text-decoration:none;overflow-wrap:anywhere}
+.search-result a.result-link:hover{text-decoration:underline}
+.anon-chip{display:inline-flex;align-items:center;gap:4px;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;cursor:pointer}
+.anon-chip:hover{background:#d1fae5}
+.search-url{font-size:12px;color:#188038;margin:3px 0;overflow-wrap:anywhere}
+.search-snippet{font-size:13px;color:#4b5563;line-height:1.6}
+.search-note{font-size:13px;color:#5f6368;padding:12px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">かびるんるん最高！</div>
+  <div class="head-actions"><button class="head-btn" id="newTab" hidden>＋ 新しいタブ</button></div>
+</header>
+<nav class="tabs" id="tabs" aria-label="タブ"></nav>
+<main>
+<section class="view active" id="calculatorView">
+  <div class="calc-shell">
+    <div class="calc-top"><span>電卓</span><button class="calc-menu" aria-label="電卓メニュー">⋮</button></div>
+    <div class="display"><div class="expression" id="expression"></div><div class="result" id="result">0</div></div>
+    <div class="keypad" id="keypad">
+      <button class="key" data-v="7">7</button><button class="key" data-v="8">8</button><button class="key" data-v="9">9</button><button class="key operator" data-action="clear">AC</button><button class="key operator" data-action="back">⌫</button><button class="key" data-v="4">4</button><button class="key" data-v="5">5</button><button class="key" data-v="6">6</button><button class="key operator" data-v="/">÷</button><button class="key science" data-v="rand">rnd</button>
+      <button class="key" data-v="1">1</button><button class="key" data-v="2">2</button><button class="key" data-v="3">3</button><button class="key operator" data-v="*">×</button><button class="key science" data-v="(">(</button><button class="key" data-v=".">.</button><button class="key" data-v="0">0</button><button class="key equal" data-action="equals">=</button><button class="key operator" data-v="-">−</button><button class="key science" data-v=")">)</button>
+      <button class="key science" data-v="sqrt(">√</button><button class="key science" data-v="^">xʸ</button><button class="key science" data-v="%">%</button><button class="key operator" data-v="+">+</button><button class="key science" data-v="pi">π</button><button class="key trig" data-v="sin(">sin</button><button class="key trig" data-v="cos(">cos</button><button class="key trig" data-v="tan(">tan</button><button class="key trig" data-v="log(">log</button><button class="key trig" data-v="ln(">ln</button>
+    </div>
+  </div>
+  <p class="help">電卓で指定の計算をして「＝」を押すと、「新しいタブ」ボタンが現れます。</p>
+</section>
+<section class="view" id="browserView">
+  <div class="browser-shell">
+    <form class="addressbar" id="urlForm">
+      <button class="nav-btn" type="button" id="backBtn" title="戻る" disabled>←</button>
+      <button class="nav-btn" type="button" id="forwardBtn" title="進む" disabled>→</button>
+      <button class="nav-btn" type="button" id="resultsBtn" title="検索結果一覧に戻る" hidden>≡ 検索結果</button>
+      <input id="urlInput" type="text" placeholder="検索キーワード / URLを入力（例：猫、Wikipedia、youtube.com）" autocomplete="off" aria-label="検索またはURL">
+      <button class="action primary" type="submit">検索 / 開く</button>
+      <button class="action anon-on" type="button" id="anonToggle" title="Startpageのようにサーバー経由でページを取得して表示します">🛡️ 匿名ビュー: ON</button>
+      <button class="action" type="button" id="reload">↻</button>
+      <button class="action" type="button" id="external">別タブ ↗</button>
+    </form>
+    <div class="browser-info">
+      <span id="browserStatus">ブラウザ — キーワードで検索して「匿名ビュー」でサイトをそのまま閲覧できます</span>
+    </div>
+    <div id="searchResults" class="search-results" hidden></div>
+    <div class="browser-empty" id="browserEmpty"><div><strong>Startpage風 匿名ビュー対応ブラウザ</strong><p>上の検索バーにキーワードを入力すると検索結果が表示され、青文字のタイトルをクリックするとアプリ内でページを閲覧できます。</p></div></div>
+    <iframe class="webframe" id="webframe" title="Webサイト" hidden sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+  </div>
+  <p class="help">🛡️ 匿名ビューONのときはサーバー経由でページを取得し、通常は埋め込み禁止（X-Frame-Options等）のサイトもアプリ内で閲覧できます。YouTubeは公式埋め込みプレイヤーで再生されます。</p>
+</section>
+</main>
+
+<div class="modal-backdrop" id="passwordModal" hidden>
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="passwordTitle">
+    <div class="modal-kicker">NEXUS ACCESS</div>
+    <h2 id="passwordTitle">パスワードは？</h2>
+    <p>ブラウザを開くにはパスワードを入力してください。</p>
+    <input class="answer" id="passwordInput" type="password" inputmode="numeric" autocomplete="off" placeholder="パスワード">
+    <div class="error" id="passwordError" aria-live="polite"></div>
+    <div class="modal-actions">
+      <button type="button" id="cancelPassword">キャンセル</button>
+      <button type="button" id="submitPassword" class="unlock">開く</button>
+    </div>
+  </section>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let expr="",justEvaluated=false;
+function render(){$("expression").textContent=expr.replaceAll("*","×").replaceAll("/","÷");$("result").textContent=expr||"0"}
+function add(v){if(justEvaluated&&/[0-9.(]/.test(v))expr="";justEvaluated=false;expr+=v;render()}
+function safeEval(s){
+ const tokens=s.match(/(?:\d+\.?\d*|\.\d+)|pi|sqrt|sin|cos|tan|log|ln|[()+\-*/%^]/g);
+ if(!tokens||tokens.join("")!==s.replace(/\s/g,""))throw Error();
+ let i=0;
+ function primary(){let t=tokens[i++];if(t==="+")return primary();if(t==="-")return-primary();if(t==="("){let v=sum();if(tokens[i++]!==")")throw Error();return v}
+  if(["sqrt","sin","cos","tan","log","ln"].includes(t)){if(tokens[i++]!=="(")throw Error();let x=sum();if(tokens[i++]!==")")throw Error();if(t==="sqrt")return Math.sqrt(x);if(t==="sin")return Math.sin(x*Math.PI/180);if(t==="cos")return Math.cos(x*Math.PI/180);if(t==="tan")return Math.tan(x*Math.PI/180);if(t==="log")return Math.log10(x);return Math.log(x)}
+  if(t==="pi")return Math.PI;let n=Number(t);if(!Number.isFinite(n))throw Error();return n}
+ function power(){let v=primary();if(tokens[i]==="^"){i++;v=Math.pow(v,power())}return v}
+ function term(){let v=power();while(["*","/","%"].includes(tokens[i])){let op=tokens[i++],b=power();v=op==="*"?v*b:op==="/"?v/b:v%b}return v}
+ function sum(){let v=term();while(tokens[i]==="+"||tokens[i]==="-"){let op=tokens[i++],b=term();v=op==="+"?v+b:v-b}return v}
+ let v=sum();if(i!==tokens.length||!Number.isFinite(v))throw Error();return v
+}
+function equals(){if(!expr)return;try{let original=expr.replace(/\s/g,"");let v=safeEval(expr);$("expression").textContent=expr.replaceAll("*","×").replaceAll("/","÷")+" =";expr=String(Number(v.toPrecision(12)));$("result").textContent=expr;justEvaluated=true;if(original==="114514+810+314"&&v===115638){$("newTab").hidden=false;$("newTab").textContent="＋ 新しいタブ";$("browserStatus").textContent="新しいタブが表示されました。"} }catch{$("result").textContent="エラー"}}
+$("keypad").addEventListener("click",e=>{let b=e.target.closest("button");if(!b)return;let a=b.dataset.action,v=b.dataset.v;if(a==="clear"){expr="";justEvaluated=false;render()}else if(a==="back"){expr=expr.slice(0,-1);justEvaluated=false;render()}else if(a==="equals")equals();else if(v==="rand")add(String(Math.floor(Math.random()*1000)));else add(v)});
+document.addEventListener("keydown",e=>{if($("calculatorView").classList.contains("active")){if(/^[0-9.+\-*/()%]$/.test(e.key))add(e.key);else if(e.key==="Enter")equals();else if(e.key==="Backspace"){expr=expr.slice(0,-1);render()}else if(e.key==="Escape"){expr="";render()}}});
+
+let tabs=[{id:1,title:"電卓",type:"calc",url:"",history:[],histIndex:-1,lastQuery:"",lastResults:null,anon:true}],activeId=1,nextId=2;
+const searchResults=$("searchResults");
+
+function activeTab(){return tabs.find(x=>x.id===activeId)}
+function drawTabs(){$("tabs").replaceChildren();tabs.forEach(t=>{let b=document.createElement("button");b.className="tab"+(t.id===activeId?" active":"");b.textContent=t.title;if(t.type==="web"){let x=document.createElement("span");x.className="x";x.textContent="×";x.title="タブを閉じる";x.addEventListener("click",e=>{e.stopPropagation();closeTab(t.id)});b.append(x)}b.addEventListener("click",()=>switchTab(t.id));$("tabs").append(b)})}
+
+function updateNavUI(){
+  const t=activeTab();
+  if(!t||t.type!=="web")return;
+  $("backBtn").disabled=t.histIndex<=0;
+  $("forwardBtn").disabled=t.histIndex>=t.history.length-1;
+  $("resultsBtn").hidden=!(t.lastResults && !searchResults.hidden===false);
+  $("anonToggle").className="action"+(t.anon?" anon-on":"");
+  $("anonToggle").textContent=t.anon?"🛡️ 匿名ビュー: ON":"🛡️ 匿名ビュー: OFF";
+}
+
+function switchTab(id){
+  let t=tabs.find(x=>x.id===id);if(!t)return;activeId=id;
+  $("calculatorView").classList.toggle("active",t.type==="calc");
+  $("browserView").classList.toggle("active",t.type==="web");
+  drawTabs();
+  if(t.type==="web"){
+    $("urlInput").value=t.url||t.lastQuery||"";
+    if(t.url){
+      loadFrameForTab(t,t.url,false);
+    }else if(t.lastResults){
+      renderResults(t.lastResults,t.lastQuery,false);
+    }else{
+      searchResults.hidden=true;$("webframe").hidden=true;$("browserEmpty").hidden=false;
+      $("browserStatus").textContent="ブラウザ — キーワードで検索して「匿名ビュー」でサイトをそのまま閲覧できます";
+    }
+    updateNavUI();
+  }
+}
+
+function openBrowserTab(){
+  let t={id:nextId++,title:"新しいタブ",type:"web",url:"",history:[],histIndex:-1,lastQuery:"",lastResults:null,anon:true};
+  tabs.push(t);switchTab(t.id);
+}
+function closeTab(id){tabs=tabs.filter(t=>t.id!==id);if(!tabs.length)tabs=[{id:nextId++,title:"電卓",type:"calc",url:"",history:[],histIndex:-1,lastQuery:"",lastResults:null,anon:true}];if(activeId===id)activeId=tabs[tabs.length-1].id;switchTab(activeId)}
+function showPasswordPrompt(){$("passwordModal").hidden=false;$("passwordInput").value="";$("passwordError").textContent="";$("passwordInput").focus()}
+$("newTab").addEventListener("click",showPasswordPrompt);
+$("cancelPassword").addEventListener("click",()=>$("passwordModal").hidden=true);
+function checkPassword(){
+  const value=$("passwordInput").value.trim();
+  if(value==="115638"||value.replace(/[×x]/g,"*").replace(/\s/g,"")==="114514+810+314"){
+    $("passwordModal").hidden=true;openBrowserTab();
+  }else $("passwordError").textContent="パスワードが違います。";
+}
+$("submitPassword").addEventListener("click",checkPassword);
+$("passwordInput").addEventListener("keydown",e=>{if(e.key==="Enter")checkPassword()});
+drawTabs();
+
+function isLikelyURL(value){return /^(https?:\/\/)/i.test(value)||/^[\w-]+(\.[\w-]+)+(\/|$)/.test(value)||/^localhost(:\d+)?(\/|$)/.test(value)}
+
+function extractYouTubeId(u){
+  const host=u.hostname.toLowerCase().replace(/^www\./,"");
+  if(host==="youtu.be")return u.pathname.slice(1).split("/")[0];
+  if(host==="youtube.com"||host==="m.youtube.com"){
+    if(u.pathname==="/watch")return u.searchParams.get("v");
+    if(u.pathname.startsWith("/shorts/"))return u.pathname.split("/")[2];
+    if(u.pathname.startsWith("/embed/"))return u.pathname.split("/")[2];
+  }
+  return "";
+}
+
+function loadFrameForTab(t, targetHref, pushHistory=true){
+  const u=new URL(targetHref);
+  t.url=u.href;
+  if(pushHistory){
+    t.history=t.history.slice(0,t.histIndex+1);
+    t.history.push(u.href);
+    t.histIndex=t.history.length-1;
+  }
+  $("urlInput").value=u.href;
+  searchResults.hidden=true;
+  $("webframe").hidden=false;
+  $("browserEmpty").hidden=true;
+
+  const ytId=extractYouTubeId(u);
+  if(ytId){
+    $("webframe").src="https://www.youtube-nocookie.com/embed/"+encodeURIComponent(ytId)+"?autoplay=1";
+    $("browserStatus").textContent="▶ YouTube公式プレイヤーで再生中："+u.href;
+  }else if(t.anon){
+    $("webframe").src="/api/view?url="+encodeURIComponent(u.href);
+    $("browserStatus").textContent="🛡️ 匿名ビューで表示中："+u.href;
+  }else{
+    $("webframe").src=u.href;
+    $("browserStatus").textContent="直接表示モード："+u.href;
+  }
+  t.title=u.hostname.replace(/^www\./,"").slice(0,18);
+  drawTabs();
+  updateNavUI();
+}
+
+function showPage(raw, forceAnon=null){
+  try{
+    let value=raw.trim();
+    if(!/^[a-z][a-z0-9+.-]*:/i.test(value))value="https://"+value;
+    const u=new URL(value);
+    if(!["http:","https:"].includes(u.protocol))throw Error();
+    const t=activeTab();
+    if(!t||t.type!=="web")return;
+    if(forceAnon!==null)t.anon=forceAnon;
+    loadFrameForTab(t,u.href,true);
+  }catch{
+    $("browserStatus").textContent="正しいURLまたは検索キーワードを入力してください";
+  }
+}
+
+function renderResults(items,query,saveToTab=true){
+  const t=activeTab();
+  if(saveToTab && t && t.type==="web"){
+    t.lastQuery=query;
+    t.lastResults=items;
+    t.url="";
+    t.title="検索: "+query.slice(0,12);
+    drawTabs();
+  }
+  searchResults.replaceChildren();
+  const heading=document.createElement("h2");
+  heading.className="search-heading";
+  heading.textContent="「"+query+"」の検索結果（青文字クリックで匿名ビュー表示）";
+  searchResults.append(heading);
+
+  if(!items.length){
+    const note=document.createElement("p");
+    note.className="search-note";
+    note.textContent="検索結果が見つかりませんでした。別のキーワードで試してください。";
+    searchResults.append(note);
+  }
+
+  items.forEach(item=>{
+    const article=document.createElement("article");
+    article.className="search-result";
+
+    const top=document.createElement("div");
+    top.className="search-result-top";
+
+    const link=document.createElement("a");
+    link.className="result-link";
+    link.href=item.url;
+    link.textContent=item.title||item.url;
+    link.addEventListener("click",e=>{e.preventDefault();showPage(item.url,true)});
+
+    const chip=document.createElement("button");
+    chip.type="button";
+    chip.className="anon-chip";
+    chip.textContent="🛡️ 匿名ビューで開く";
+    chip.addEventListener("click",()=>showPage(item.url,true));
+
+    top.append(link,chip);
+
+    const url=document.createElement("div");
+    url.className="search-url";
+    url.textContent=item.displayUrl||item.url;
+
+    const snippet=document.createElement("div");
+    snippet.className="search-snippet";
+    snippet.textContent=item.snippet||"";
+
+    article.append(top,url,snippet);
+    searchResults.append(article);
+  });
+
+  searchResults.hidden=false;
+  $("webframe").hidden=true;
+  $("browserEmpty").hidden=true;
+  updateNavUI();
+}
+
+$("urlForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const raw=$("urlInput").value.trim();
+  if(!raw)return;
+  if(isLikelyURL(raw)){showPage(raw);return}
+
+  searchResults.hidden=false;
+  searchResults.replaceChildren();
+  const loading=document.createElement("p");
+  loading.className="search-note";
+  loading.textContent="検索しています…";
+  searchResults.append(loading);
+  $("webframe").hidden=true;
+  $("browserEmpty").hidden=true;
+  $("browserStatus").textContent="検索中...";
+
+  try{
+    const response=await fetch("/api/search?q="+encodeURIComponent(raw),{headers:{"Accept":"application/json"}});
+    if(!response.ok)throw Error("search failed");
+    const data=await response.json();
+    const list=Array.isArray(data.results)?data.results:[];
+    renderResults(list,raw,true);
+    $("browserStatus").textContent="検索結果："+list.length+"件（タイトルをクリックすると匿名ビューで表示します）";
+  }catch{
+    searchResults.replaceChildren();
+    const note=document.createElement("p");
+    note.className="search-note";
+    note.textContent="検索サービスに接続できませんでした。少し待ってから再試行してください。";
+    searchResults.append(note);
+    $("browserStatus").textContent="検索エラー";
+  }
+});
+
+$("backBtn").addEventListener("click",()=>{
+  const t=activeTab();
+  if(t&&t.histIndex>0){t.histIndex--;loadFrameForTab(t,t.history[t.histIndex],false)}
+});
+$("forwardBtn").addEventListener("click",()=>{
+  const t=activeTab();
+  if(t&&t.histIndex<t.history.length-1){t.histIndex++;loadFrameForTab(t,t.history[t.histIndex],false)}
+});
+$("resultsBtn").addEventListener("click",()=>{
+  const t=activeTab();
+  if(t&&t.lastResults){
+    $("urlInput").value=t.lastQuery;
+    renderResults(t.lastResults,t.lastQuery,true);
+    $("browserStatus").textContent="検索結果："+t.lastResults.length+"件";
+  }
+});
+$("anonToggle").addEventListener("click",()=>{
+  const t=activeTab();
+  if(!t||t.type!=="web")return;
+  t.anon=!t.anon;
+  updateNavUI();
+  if(t.url)loadFrameForTab(t,t.url,false);
+});
+$("reload").addEventListener("click",()=>{
+  const t=activeTab();
+  if(t&&t.url)loadFrameForTab(t,t.url,false);
+  else $("urlForm").requestSubmit();
+});
+$("external").addEventListener("click",()=>{
+  const t=activeTab();
+  if(t&&t.url)window.open(t.url,"_blank","noopener,noreferrer");
+});
+
+// 匿名ビュー内のリンククリックを親フレームで受け取って遷移させる
+window.addEventListener("message",e=>{
+  if(e.data&&e.data.type==="kabi-navigate"&&typeof e.data.url==="string"){
+    showPage(e.data.url,true);
+  }
+});
+</script>
+</body>
+</html>
