@@ -22,13 +22,17 @@ function hasKvBinding(env) {
 
 function databaseUnavailable() {
   return json({
-    error: "Cloudflare KVの設定を確認してください。Pages Functionsに、バインディング名「DB」のKV Namespaceが必要です。"
+    error: "Cloudflare Pagesの設定が必要です。Pages Functionsに「DB」という名前でKV Namespaceをバインドしてください（D1ではなくWorkers KVです）。"
   }, 500);
 }
 
-function databaseFailure() {
+function databaseFailure(error, operation) {
+  const detail = error instanceof Error
+    ? `${error.name}: ${error.message}`
+    : String(error || "Unknown error");
+  console.error(`Auth database operation failed (${operation})`, error);
   return json({
-    error: "データベース処理に失敗しました。Cloudflare Pagesの「DB」KV Namespaceのバインディングとアクセス権を確認してください。"
+    error: `KVの${operation}処理に失敗しました。Pagesの「DB」KV Namespace設定と本番環境へのバインドを確認してください。詳細: ${detail.slice(0, 300)}`
   }, 500);
 }
 
@@ -36,28 +40,26 @@ export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   const action = url.searchParams.get("action");
 
+  if (action === "health") {
+    return json({ ok: true, api: "auth" });
+  }
+  if (action !== "list") {
+    return json({ error: "Invalid action" }, 400);
+  }
+  if (!checkAdmin(url.searchParams.get("adminKey"))) {
+    return json({ error: "管理者権限がありません。" }, 403);
+  }
+  if (!hasKvBinding(env)) {
+    return databaseUnavailable();
+  }
+
   try {
-    if (action === "health") {
-      return json({ ok: true, api: "auth" });
-    }
-
-    if (action !== "list") {
-      return json({ error: "Invalid action" }, 400);
-    }
-    if (!checkAdmin(url.searchParams.get("adminKey"))) {
-      return json({ error: "管理者権限がありません。" }, 403);
-    }
-    if (!hasKvBinding(env)) {
-      return databaseUnavailable();
-    }
-
     const result = await env.DB.list({ prefix: "user:" });
     const users = await Promise.all(result.keys.map(key => env.DB.get(key.name, "json")));
     const filteredUsers = users.filter(Boolean).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return json({ users: filteredUsers });
   } catch (error) {
-    console.error("Auth GET failed", error);
-    return databaseFailure();
+    return databaseFailure(error, "list/get");
   }
 }
 
@@ -72,10 +74,15 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "不正なリクエストです。JSON形式で送信してください。" }, 400);
   }
 
+  if (action === "decide" && !checkAdmin(body.adminKey)) {
+    return json({ error: "管理者権限がありません。" }, 403);
+  }
+  if (["register", "login", "decide"].includes(action) && !hasKvBinding(env)) {
+    return databaseUnavailable();
+  }
+
   try {
     if (action === "register") {
-      if (!hasKvBinding(env)) return databaseUnavailable();
-
       const id = String(body.id || "").trim();
       const password = String(body.password || "").trim();
       if (!/^[a-zA-Z0-9_-]{2,24}$/.test(id)) {
@@ -108,8 +115,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (action === "login") {
-      if (!hasKvBinding(env)) return databaseUnavailable();
-
       const id = String(body.id || "").trim();
       const password = String(body.password || "").trim();
       if (!id || !password) {
@@ -135,11 +140,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (action === "decide") {
-      if (!checkAdmin(body.adminKey)) {
-        return json({ error: "管理者権限がありません。" }, 403);
-      }
-      if (!hasKvBinding(env)) return databaseUnavailable();
-
       const targetId = String(body.id || "").trim();
       const decision = String(body.decision || "").trim();
       if (!targetId) return json({ error: "対象IDがありません。" }, 400);
@@ -161,7 +161,10 @@ export async function onRequestPost({ request, env }) {
 
     return json({ error: "Invalid action" }, 400);
   } catch (error) {
-    console.error("Auth POST failed", { action, error });
-    return databaseFailure();
+    if (action === "decide") {
+      return databaseFailure(error, "get/put/delete");
+    }
+    console.error(`Auth ${action || "unknown"} failed`, error);
+    return json({ error: "認証データベースの処理に失敗しました。Cloudflare PagesのKV設定を確認してください。" }, 500);
   }
 }
