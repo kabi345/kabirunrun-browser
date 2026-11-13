@@ -1,4 +1,6 @@
 const ADMIN_SECRET = "115638";
+const USER_PREFIX = "user:";
+const USER_INDEX_KEY = "users:index:v1";
 
 function json(body, status = 200) {
   return Response.json(body, {
@@ -22,7 +24,7 @@ function hasKvBinding(env) {
 
 function databaseUnavailable() {
   return json({
-    error: "Cloudflare Pagesの設定が必要です。Pages Functionsに「DB」という名前でKV Namespaceをバインドしてください（D1ではなくWorkers KVです）。"
+    error: "Cloudflare Pagesの設定が必要です。Pages Functionsに「DB」という名前でWorkers KV Namespaceをバインドしてください。"
   }, 500);
 }
 
@@ -32,33 +34,79 @@ function databaseFailure(error, operation) {
     : String(error || "Unknown error");
   console.error(`Auth database operation failed (${operation})`, error);
   return json({
-    error: `KVの${operation}処理に失敗しました。Pagesの「DB」KV Namespace設定と本番環境へのバインドを確認してください。詳細: ${detail.slice(0, 300)}`
+    error: `KVの${operation}処理に失敗しました。詳細: ${detail.slice(0, 300)}`
   }, 500);
+}
+
+function isListLimitError(error) {
+  return /list\(\).*limit exceeded/i.test(String(error?.message || error));
+}
+
+// The first admin list request migrates existing user:* keys into a compact index.
+// Subsequent admin refreshes read the index with get(), avoiding repeated KV list() calls.
+async function getUserIds(env) {
+  let index = await env.DB.get(USER_INDEX_KEY, "json");
+  if (index?.version === 1 && index.complete === true && Array.isArray(index.ids)) {
+    return [...new Set(index.ids.filter(id => typeof id === "string" && id))];
+  }
+
+  const ids = new Set(Array.isArray(index?.ids) ? index.ids.filter(id => typeof id === "string" && id) : []);
+  let cursor;
+  do {
+    const page = await env.DB.list({ prefix: USER_PREFIX, limit: 1000, ...(cursor ? { cursor } : {}) });
+    for (const key of page.keys || []) {
+      const id = key.name.slice(USER_PREFIX.length);
+      if (id) ids.add(id);
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  const completeIndex = { version: 1, complete: true, ids: [...ids] };
+  await env.DB.put(USER_INDEX_KEY, JSON.stringify(completeIndex));
+  return completeIndex.ids;
+}
+
+async function addUserIdToIndex(env, id) {
+  const index = await env.DB.get(USER_INDEX_KEY, "json");
+  const ids = new Set(Array.isArray(index?.ids) ? index.ids : []);
+  ids.add(id);
+  // Do not call a partial index complete: legacy users still need one migration list.
+  await env.DB.put(USER_INDEX_KEY, JSON.stringify({
+    version: 1,
+    complete: index?.version === 1 && index.complete === true,
+    ids: [...ids]
+  }));
+}
+
+async function removeUserIdFromIndex(env, id) {
+  const index = await env.DB.get(USER_INDEX_KEY, "json");
+  if (!index || !Array.isArray(index.ids)) return;
+  index.ids = index.ids.filter(existingId => existingId !== id);
+  await env.DB.put(USER_INDEX_KEY, JSON.stringify(index));
 }
 
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   const action = url.searchParams.get("action");
 
-  if (action === "health") {
-    return json({ ok: true, api: "auth" });
-  }
-  if (action !== "list") {
-    return json({ error: "Invalid action" }, 400);
-  }
+  if (action === "health") return json({ ok: true, api: "auth" });
+  if (action !== "list") return json({ error: "Invalid action" }, 400);
   if (!checkAdmin(url.searchParams.get("adminKey"))) {
     return json({ error: "管理者権限がありません。" }, 403);
   }
-  if (!hasKvBinding(env)) {
-    return databaseUnavailable();
-  }
+  if (!hasKvBinding(env)) return databaseUnavailable();
 
   try {
-    const result = await env.DB.list({ prefix: "user:" });
-    const users = await Promise.all(result.keys.map(key => env.DB.get(key.name, "json")));
+    const ids = await getUserIds(env);
+    const users = await Promise.all(ids.map(id => env.DB.get(USER_PREFIX + id, "json")));
     const filteredUsers = users.filter(Boolean).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return json({ users: filteredUsers });
   } catch (error) {
+    if (isListLimitError(error)) {
+      return json({
+        error: "Cloudflare Workers KVのlist()上限に達しています。既存アカウント一覧の初回移行が完了できませんでした。上限が回復した後に管理者パネルを一度開けば一覧を索引化し、以降はlist()を繰り返し呼びません。"
+      }, 503);
+    }
     return databaseFailure(error, "list/get");
   }
 }
@@ -95,17 +143,18 @@ export async function onRequestPost({ request, env }) {
         return json({ error: "このIDは使用できません。" }, 400);
       }
 
-      const existing = await env.DB.get("user:" + id, "json");
+      const existing = await env.DB.get(USER_PREFIX + id, "json");
       if (existing) {
         return json({ error: "このIDはすでに使われています。別のIDにしてください。" }, 409);
       }
 
-      await env.DB.put("user:" + id, JSON.stringify({
+      await env.DB.put(USER_PREFIX + id, JSON.stringify({
         id,
         password,
         status: "pending",
         createdAt: Date.now()
       }));
+      await addUserIdToIndex(env, id);
 
       return json({
         ok: true,
@@ -117,11 +166,9 @@ export async function onRequestPost({ request, env }) {
     if (action === "login") {
       const id = String(body.id || "").trim();
       const password = String(body.password || "").trim();
-      if (!id || !password) {
-        return json({ error: "IDとパスワードを入力してください。" }, 400);
-      }
+      if (!id || !password) return json({ error: "IDとパスワードを入力してください。" }, 400);
 
-      const user = await env.DB.get("user:" + id, "json");
+      const user = await env.DB.get(USER_PREFIX + id, "json");
       if (!user || user.password !== password) {
         return json({ error: "IDまたはパスワードが違います。" }, 401);
       }
@@ -135,7 +182,6 @@ export async function onRequestPost({ request, env }) {
           status
         }, 403);
       }
-
       return json({ ok: true, id: user.id, status: user.status });
     }
 
@@ -148,23 +194,21 @@ export async function onRequestPost({ request, env }) {
       }
 
       if (decision === "delete") {
-        await env.DB.delete("user:" + targetId);
+        await env.DB.delete(USER_PREFIX + targetId);
+        await removeUserIdFromIndex(env, targetId);
         return json({ ok: true });
       }
 
-      const user = await env.DB.get("user:" + targetId, "json");
+      const user = await env.DB.get(USER_PREFIX + targetId, "json");
       if (!user) return json({ error: "ユーザーが見つかりません。" }, 404);
       user.status = decision;
-      await env.DB.put("user:" + targetId, JSON.stringify(user));
+      await env.DB.put(USER_PREFIX + targetId, JSON.stringify(user));
       return json({ ok: true, user });
     }
 
     return json({ error: "Invalid action" }, 400);
   } catch (error) {
-    if (action === "decide") {
-      return databaseFailure(error, "get/put/delete");
-    }
     console.error(`Auth ${action || "unknown"} failed`, error);
-    return json({ error: "認証データベースの処理に失敗しました。Cloudflare PagesのKV設定を確認してください。" }, 500);
+    return databaseFailure(error, action || "unknown");
   }
 }
